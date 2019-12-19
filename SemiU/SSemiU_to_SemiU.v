@@ -13,9 +13,6 @@
 *)
 
 Require Import List.
-Import ListNotations.
-
-Require Import ssreflect ssrfun ssrbool.
 
 (* semi-unification *)
 From Undecidability.SemiU Require Import SemiU_prelim SemiU SSemiU.
@@ -28,7 +25,7 @@ From Undecidability Require Import Reduction.
 (* reduction from simple semi-unification to semi-unification *)
 Theorem SSemiU_to_SemiU : SSemiU ⪯ SemiU.
 Proof.
-  exists (fun p => [Reduction.SSU_to_SU0 p; Reduction.SSU_to_SU1 p]).
+  exists (fun p => (Reduction.SSU_to_SU0 p) :: (Reduction.SSU_to_SU1 p) :: nil).
   intro p. constructor.
   exact Reduction.soundness.
   exact Reduction.completeness.

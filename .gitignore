@@ -1,0 +1,7 @@
+*.aux
+*.vo
+*.glob
+*.cache
+/*.conf
+/*.d
+/*.coq

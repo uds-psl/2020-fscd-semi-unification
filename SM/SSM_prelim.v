@@ -11,7 +11,6 @@
 *)
 
 Require Import List.
-Import ListNotations.
 Require Import Relation_Operators.
 
 Definition stack : Set := list bool.
