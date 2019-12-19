@@ -18,3 +18,4 @@ SemiU/SSemiU/DSSM_UB_to_SSemiU_argument.v
 SemiU/DSSM_UB_to_SSemiU.v
 SemiU/SemiU/SSemiU_to_SemiU_argument.v
 SemiU/SSemiU_to_SemiU.v
+SemiU/DSSM_UB_to_SemiU.v
