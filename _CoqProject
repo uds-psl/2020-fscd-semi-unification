@@ -1,0 +1,20 @@
+-Q . Undecidability
+
+COQDOCFLAGS = "--charset utf-8"
+
+Reduction.v
+
+SM/SSM_prelim.v
+SM/DSSM_UB.v
+SM/DSSM/Utils.v
+SM/DSSM/DSSM_facts.v
+
+SemiU/SemiU_prelim.v
+SemiU/SemiU.v
+SemiU/SSemiU.v
+SemiU/SSemiU/Enumerable.v
+SemiU/SSemiU/Utils.v
+SemiU/SSemiU/DSSM_UB_to_SSemiU_argument.v
+SemiU/DSSM_UB_to_SSemiU.v
+SemiU/SemiU/SSemiU_to_SemiU_argument.v
+SemiU/SSemiU_to_SemiU.v
