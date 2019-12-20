@@ -100,34 +100,34 @@ Proof.
 Qed.
 
 (* n is 1 + bound - length X.2 *)
-Fixpoint φ (n: nat) (X: config) : term := 
+Fixpoint ζ (n: nat) (X: config) : term := 
   match n with
   | 0 => atom (embed (nf X))
   | S n => 
       match X with
       | (A, x, B) => 
-        if narrow_dec (A, x, B) then arr (φ n (A, x, B++[false])) (φ n (A, x, B++[true])) 
+        if narrow_dec (A, x, B) then arr (ζ n (A, x, B++[false])) (ζ n (A, x, B++[true])) 
         else atom (embed (nf X))
       end
   end.
 
 Definition ψ (a: bool) (n: nat) (i: nat): term := 
   match unembed i with
-  | (A, x, B) => φ (n - length B) (A++[a], x, B)
+  | (A, x, B) => ζ (n - length B) (A++[a], x, B)
   end.
 
-Lemma φ_nilP {n: nat} {x: state} : φ (S n) ([], x, []) = arr (φ n ([], x, [false])) (φ n ([], x, [true])).
+Lemma ζ_nilP {n: nat} {x: state} : ζ (S n) ([], x, []) = arr (ζ n ([], x, [false])) (ζ n ([], x, [true])).
 Proof. 
   move=> /=. case: (narrow_dec ([], x, [])).
     done.
   move=> H. exfalso. apply: H. exists x, []. by apply: equiv_refl.
 Qed. 
 
-Lemma φ_0P {X: config} : φ 0 X = atom (embed (nf X)).
+Lemma ζ_0P {X: config} : ζ 0 X = atom (embed (nf X)).
 Proof. done. Qed.
 
-Lemma φ_SnP {n: nat} {x: state} {A B: stack} : φ (S n) (A, x, B) = 
-  if narrow_dec (A, x, B) then arr (φ n (A, x, B++[false])) (φ n (A, x, B++[true])) else atom (embed (nf (A, x, B))).
+Lemma ζ_SnP {n: nat} {x: state} {A B: stack} : ζ (S n) (A, x, B) = 
+  if narrow_dec (A, x, B) then arr (ζ n (A, x, B++[false])) (ζ n (A, x, B++[true])) else atom (embed (nf (A, x, B))).
 Proof. done. Qed.
 
 Lemma SM_to_SUcsP {x y: state} {a b: symbol} : In (a, x, (y, b)) (SM_to_SUcs M) -> exists x' y', 
@@ -149,28 +149,28 @@ Proof.
 Qed.
 
 
-Lemma φ_equivP {n: nat} {x x': state} {A B A' B': stack} : bound n -> equiv (A, x, B) (A', x', B') -> 
-  φ (S n - length B) (A, x, B) = φ (S n - length B') (A', x', B').
+Lemma ζ_equivP {n: nat} {x x': state} {A B A' B': stack} : bound n -> equiv (A, x, B) (A', x', B') -> 
+  ζ (S n - length B) (A, x, B) = ζ (S n - length B') (A', x', B').
 Proof.
   move=> Hn. move Hm: (S n - length B)=> m.
   elim: m A B A' B' Hm.
   - move=> A B A' B' HnB Hxx'.
     have: (S n - length B' = 0 \/ S n - length B' = (S (n - length B'))) by lia. case.
-      move=> ->. rewrite ? φ_0P. f_equal. f_equal. by apply: nf_equiv_eq.
-    move=> HnB'. rewrite HnB' φ_0P φ_SnP.
+      move=> ->. rewrite ? ζ_0P. f_equal. f_equal. by apply: nf_equiv_eq.
+    move=> HnB'. rewrite HnB' ζ_0P ζ_SnP.
     case: (narrow_dec (A', x', B')) => /=; first last.
       move=> _. f_equal. f_equal. by apply: nf_equiv_eq.
     move /equiv_sym in Hxx'.
     move /(narrow_equiv detM Hxx') /Hn. by lia.
   - move=> m IH A B A' B' Hm Hxx'.
     have: (S n - length B' = 0 \/ S n - length B' = S (n - length B')) by lia. case.
-      move=> HnB'. rewrite HnB' φ_0P φ_SnP.
+      move=> HnB'. rewrite HnB' ζ_0P ζ_SnP.
       case: (narrow_dec (A, x, B)) => /=; first last.
         move=> _. f_equal. f_equal. by apply: nf_equiv_eq.
       move /(narrow_equiv detM Hxx') /Hn. by lia.
-    move=> ->. rewrite ? φ_SnP.
+    move=> ->. rewrite ? ζ_SnP.
     case: (narrow_dec (A, x, B)); case: (narrow_dec (A', x', B'))=> /=.
-    + move=> _ _. apply: (arr_eqI (s := fun=> φ _ _) (t := fun=> φ _ _)).
+    + move=> _ _. apply: (arr_eqI (s := fun=> ζ _ _) (t := fun=> ζ _ _)).
       move=> b. have -> : n - length B' = S n - length (B' ++ [b]).
           rewrite app_length /length. by lia.
       apply: IH. 
@@ -183,41 +183,41 @@ Qed.
 
 Lemma ψP {a: bool} {n: nat} {X: config} : ψ a n (embed X) = 
   match X with
-  | (A, x, B) => φ (n - length B) (A++[a], x, B)
+  | (A, x, B) => ζ (n - length B) (A++[a], x, B)
   end.
 Proof. by rewrite /ψ embedP. Qed.
 
-Lemma ψφP {n: nat} {x: state} {A B: stack} {a: bool} : bound n -> 
-  φ (S n - length B) (A ++ [a], x, B) = substitute (ψ a (S n)) (φ (S n - length B) (A, x, B)).
+Lemma ψζP {n: nat} {x: state} {A B: stack} {a: bool} : bound n -> 
+  ζ (S n - length B) (A ++ [a], x, B) = substitute (ψ a (S n)) (ζ (S n - length B) (A, x, B)).
 Proof.
   rewrite /bound => Hn. move Hm: (S n - length B)=> m.
   elim: m x A B Hm.
   - move=> x A B Hm.
-    rewrite ? φ_0P => /=. rewrite ψP.
+    rewrite ? ζ_0P => /=. rewrite ψP.
     move HAxB: (nf (A, x, B)) => [[A' x'] B'].
     have: S n - length B' = 0 \/ S n - length B' > 0 by lia. case.
-      move=> ->. rewrite φ_0P. f_equal. f_equal. 
+      move=> ->. rewrite ζ_0P. f_equal. f_equal. 
       apply: nf_equiv_eq. apply: equiv_appL. 
       rewrite -HAxB. by apply: nf_equiv.
     move=> ?.
     have Hxx': equiv (A' ++ [a], x', B') (A ++ [a], x, B).
       apply: equiv_appL. rewrite equiv_sym -HAxB. by apply: nf_equiv.
-    rewrite (φ_equivP Hn Hxx').
-    by rewrite Hm φ_0P.
+    rewrite (ζ_equivP Hn Hxx').
+    by rewrite Hm ζ_0P.
   - move=> m IH x A B Hm.
-    rewrite ? φ_SnP. case: (narrow_dec (A, x, B)).
+    rewrite ? ζ_SnP. case: (narrow_dec (A, x, B)).
     (* AxB is narrow *)
     + move=> /= /(narrow_appL (a := a)) => ?. case: (narrow_dec (A ++ [a], x, B)); first last.
         done.
-      move=> _ /=. apply: (arr_eqI (s := fun => φ _ _) (t := fun => substitute _ _)).
+      move=> _ /=. apply: (arr_eqI (s := fun => ζ _ _) (t := fun => substitute _ _)).
       move=> b. apply: IH. rewrite app_length /length -/(length _). by lia.
-    + move=> _ /=. rewrite -(φ_SnP (A := A ++ [a])).
+    + move=> _ /=. rewrite -(ζ_SnP (A := A ++ [a])).
       rewrite ψP.  move HAxB: (nf (A, x, B)) => [[A' x'] B'].
       rewrite -Hm.
       (* prove before induction*)
       have Hxx': equiv (A ++ [a], x, B) (A' ++ [a], x', B').
         apply: equiv_appL. rewrite -HAxB. by apply: nf_equiv.
-      by rewrite (φ_equivP Hn Hxx').
+      by rewrite (ζ_equivP Hn Hxx').
 Qed.
 
 End SM.
@@ -226,19 +226,19 @@ End SM.
   then the constructed simple semi-unification instance has a solution *)
 Lemma soundness {M: dssm} : DSSM_UB M -> SSemiU (SM_to_SUcs (proj1_sig M)).
 Proof.
-  Opaque φ ψ.
+  Opaque ζ ψ.
   case: M=> M detM. rewrite /DSSM_UB /SSemiU. move=> /= [n /(actual_bounded_narrow detM)].
   move: (n+n) => {}n HnM.
-  exists (fun i => φ detM (S n) (unembed i)), (ψ detM false (S n)), (ψ detM true (S n)).
+  exists (fun i => ζ detM (S n) (unembed i)), (ψ detM false (S n)), (ψ detM true (S n)).
   case=> [[a x]] => [[y b]] /=. move /SM_to_SUcsP => [x' [y' [? [?]]]]. 
   subst x y. move: x' y' => x y.
   move /equiv_sym => Hxy. rewrite ? embedP. 
-  rewrite φ_nilP. rewrite (itebP (P := fun _ => φ _ _ _)).
+  rewrite ζ_nilP. rewrite (itebP (P := fun _ => ζ _ _ _)).
   have {1}-> : (n = S n - 1) by lia.
-  rewrite (φ_equivP _ HnM Hxy) => /=.
+  rewrite (ζ_equivP _ HnM Hxy) => /=.
   rewrite (itebP (P := fun=> ψ _ _ _)).
   have {1 3}->: S n = S n - 0 by lia.
-  have := (ψφP _ HnM (A := []) (B := [])). apply.
+  have := (ψζP _ HnM (A := []) (B := [])). apply.
 Qed.
 
 (* reduction completeness *)
