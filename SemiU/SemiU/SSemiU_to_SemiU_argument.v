@@ -32,6 +32,7 @@ Definition SSU_to_SU0 (p: list constraint) : inequality :=
       (arr (arr (if b then (embed_lr y false) else (embed_var x)) (if b then (embed_var x) else (embed_lr y true))) s, 
         arr (embed_var y) t)) (atom (to_nat (0, 3)), atom (to_nat (0, 3))) p.
 
+(* simple constraints to inequalities *)
 Definition SSU_to_SU1 (p: list constraint) : inequality := 
   fold_right (fun '((a, x), (y, b)) '(s, t) => 
     if a then  

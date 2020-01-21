@@ -2,7 +2,7 @@
   Autor(s):
     Andrej Dudenhefner (1) 
   Affiliation(s):
-    (1) Saarland Informatics Campus, Saarland University, Saarbrücken, Germany
+    (1) Saarland University, Saarbrücken, Germany
 *)
 
 Require Import ssreflect ssrbool ssrfun.
@@ -30,10 +30,6 @@ Proof. by auto. Qed.
 (* duplicates argument *)
 Lemma copy {A: Prop} : A -> A * A.
 Proof. done. Qed.
-
-(* list facts *)
-Lemma in_cons_iff : forall {A : Type} {a b : A} {l : list A}, In b (a :: l) <-> (a = b \/ In b l).
-Proof. by constructor. Qed.
 
 (* Forall facts *)
 Lemma Forall_nil_iff {X: Type} {P: X -> Prop} : Forall P [] <-> True.

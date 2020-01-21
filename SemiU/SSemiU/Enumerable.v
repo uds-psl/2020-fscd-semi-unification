@@ -2,7 +2,7 @@
   Autor(s):
     Andrej Dudenhefner (1) 
   Affiliation(s):
-    (1) Saarland Informatics Campus, Saarland University, Saarbrücken, Germany
+    (1) Saarland University, Saarbrücken, Germany
 *)
 
 Require Import ssreflect ssrbool ssrfun.
@@ -10,7 +10,7 @@ Require Import Arith Psatz.
 Require Import List.
 Import ListNotations.
 
-(* Enumerable X allows injection into nat *)
+(* Enumerable X admits injection into nat *)
 Class Enumerable (X: Type) :=
   {
     to_nat : X -> nat;

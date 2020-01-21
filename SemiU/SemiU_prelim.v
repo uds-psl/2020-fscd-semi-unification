@@ -2,7 +2,7 @@
   Autor(s):
     Andrej Dudenhefner (1) 
   Affiliation(s):
-    (1) Saarland Informatics Campus, Saarland University, Saarbrücken, Germany
+    (1) Saarland University, Saarbrücken, Germany
 *)
 
 (* 
@@ -18,7 +18,7 @@ Inductive term : Set :=
 
 Definition valuation : Set := nat -> term.
 
-(* substitute atomic leaves by corresponding valuation *)
+(* substitute atoms n of a term t by (f n) *)
 Fixpoint substitute (f: valuation) (t: term) : term :=
   match t with
   | atom n => f n

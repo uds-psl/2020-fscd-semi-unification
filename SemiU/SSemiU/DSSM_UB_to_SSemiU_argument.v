@@ -2,7 +2,7 @@
   Autor(s):
     Andrej Dudenhefner (1) 
   Affiliation(s):
-    (1) Saarland Informatics Campus, Saarland University, Saarbrücken, Germany
+    (1) Saarland University, Saarbrücken, Germany
 *)
 
 (* 
@@ -53,15 +53,17 @@ Notation equiv_dec := (equiv_dec detM).
 Notation narrow_dec := (narrow_dec detM).
 Notation bound := (@bound M).
 
+(* bounded (by i) search for normal form of X *)
 Fixpoint nf_aux (i: nat) (X: config) : config :=
   match i with
   | 0 => X
   | S i => if equiv_dec (unembed i) X then nf_aux i (unembed i) else nf_aux i X
   end.
 
-(* normal form, lowest Y such that equiv X Y, definitely exists *)
+(* normal form, minimal (wrt. embed) Y such that equiv X Y *)
 Definition nf (X: config) : config := nf_aux (embed X) X.
 
+(* X is equivalent to its normal form *)
 Lemma nf_equiv (X: config) : equiv X (nf X).
 Proof.
   rewrite /nf. move: (embed X) => i. elim: i X.
@@ -89,6 +91,7 @@ Proof.
   move=> ?. by apply: IH.
 Qed.
 
+(* normal forms of equivalent configurations are equal *)
 Lemma nf_equiv_eq (X Y: config) : equiv X Y -> nf X = nf Y.
 Proof.
   have: (embed X = embed Y \/ embed X < embed Y \/ embed Y < embed X) by lia.
@@ -127,7 +130,9 @@ Lemma ζ_0P {X: config} : ζ 0 X = atom (embed (nf X)).
 Proof. done. Qed.
 
 Lemma ζ_SnP {n: nat} {x: state} {A B: stack} : ζ (S n) (A, x, B) = 
-  if narrow_dec (A, x, B) then arr (ζ n (A, x, B++[false])) (ζ n (A, x, B++[true])) else atom (embed (nf (A, x, B))).
+  if narrow_dec (A, x, B) then 
+    arr (ζ n (A, x, B++[false])) (ζ n (A, x, B++[true])) 
+  else atom (embed (nf (A, x, B))).
 Proof. done. Qed.
 
 Lemma SM_to_SUcsP {x y: state} {a b: symbol} : In (a, x, (y, b)) (SM_to_SUcs M) -> exists x' y', 
@@ -212,9 +217,8 @@ Proof.
       move=> _ /=. apply: (arr_eqI (s := fun => ζ _ _) (t := fun => substitute _ _)).
       move=> b. apply: IH. rewrite app_length /length -/(length _). by lia.
     + move=> _ /=. rewrite -(ζ_SnP (A := A ++ [a])).
-      rewrite ψP.  move HAxB: (nf (A, x, B)) => [[A' x'] B'].
+      rewrite ψP. move HAxB: (nf (A, x, B)) => [[A' x'] B'].
       rewrite -Hm.
-      (* prove before induction*)
       have Hxx': equiv (A ++ [a], x, B) (A' ++ [a], x', B').
         apply: equiv_appL. rewrite -HAxB. by apply: nf_equiv.
       by rewrite (ζ_equivP Hn Hxx').
@@ -288,36 +292,28 @@ Proof.
   move=> a A IH s t /=. by rewrite IH.
 Qed.
 
+(* interpret φ ψ0 ψ1 of s|p|q is πp (ψs (φ p)) *)
 Definition interpret (φ ψ0 ψ1: valuation) (X: config) : option term :=
   match X with 
   | (A, x, B) => descend (ascend ψ0 ψ1 (φ (embed ([], x, []))) A) B
   end.
 
-Lemma Forall_mapP {X Y : Type} {P : Y -> Prop} {f : X -> Y} {l : list X} : 
-  Forall P (map f l) <-> Forall (fun x => P (f x)) l.
-Proof.
-  elim: l.
-    move=> /=. by constructor.
-  move=> a l IH /=. by rewrite ? Forall_norm IH.
-Qed.
-
+(* reachabile configurations have the same interpretation  *)
 Lemma interpretP {M: ssm} {X Y: config} {φ ψ0 ψ1: valuation} : 
-  Forall (sem φ ψ0 ψ1) (SM_to_SUcs M) -> reachable M X Y -> interpret φ ψ0 ψ1 X = interpret φ ψ0 ψ1 Y.
+  Forall (models φ ψ0 ψ1) (SM_to_SUcs M) -> reachable M X Y -> interpret φ ψ0 ψ1 X = interpret φ ψ0 ψ1 Y.
 Proof.
   move=> HM. elim.
   - move=> {}X {}Y. case.
     + move=> x y a b A B.
       move: HM. rewrite /SM_to_SUcs. rewrite Forall_mapP Forall_forall => HM. 
-      move /HM. rewrite /sem /interpret.
-      case: (φ (embed ([], y, []))).
-        done.
+      move /HM. rewrite /models /interpret.
+      case: (φ (embed ([], y, []))); first done.
       move=> s t. case: a; case: b; move=> -> /=.
       all: by rewrite ascend_arr=> /=.
     + move=> x y a b A B.
       move: HM. rewrite /SM_to_SUcs. rewrite Forall_mapP Forall_forall => HM. 
-      move /HM. rewrite /sem /interpret.
-      case: (φ (embed ([], x, []))).
-        done.
+      move /HM. rewrite /models /interpret.
+      case: (φ (embed ([], x, []))); first done.
       move=> s t. case: a; case: b; move=> -> /=.
       all: by rewrite ascend_arr=> /=.
   - done.

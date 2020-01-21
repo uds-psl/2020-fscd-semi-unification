@@ -2,11 +2,10 @@
   Autor(s):
     Andrej Dudenhefner (1) 
   Affiliation(s):
-    (1) Saarland Informatics Campus, Saarland University, Saarbrücken, Germany
+    (1) Saarland University, Saarbrücken, Germany
 *)
 
 Require Import ssreflect ssrbool ssrfun.
-Require Import Arith Psatz.
 Require Import List.
 Import ListNotations.
 
@@ -44,3 +43,11 @@ Qed.
 
 (* usage: rewrite ? Forall_norm *)
 Definition Forall_norm := (@Forall_app_iff, @Forall_singleton_iff, @Forall_cons_iff, @Forall_nil_iff).
+
+Lemma Forall_mapP {X Y : Type} {P : Y -> Prop} {f : X -> Y} {l : list X} : 
+  Forall P (map f l) <-> Forall (fun x => P (f x)) l.
+Proof.
+  elim: l.
+    move=> /=. by constructor.
+  move=> a l IH /=. by rewrite ? Forall_norm IH.
+Qed.
