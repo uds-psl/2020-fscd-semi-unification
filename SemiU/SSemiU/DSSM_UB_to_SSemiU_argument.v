@@ -212,8 +212,7 @@ Proof.
   - move=> m IH x A B Hm.
     rewrite ? ζ_SnP. case: (narrow_dec (A, x, B)).
     (* AxB is narrow *)
-    + move=> /= /(narrow_appL (a := a)) => ?. case: (narrow_dec (A ++ [a], x, B)); first last.
-        done.
+    + move=> /= /(narrow_appL (a := a)) => ?. case: (narrow_dec (A ++ [a], x, B)); last done.
       move=> _ /=. apply: (arr_eqI (s := fun => ζ _ _) (t := fun => substitute _ _)).
       move=> b. apply: IH. rewrite app_length /length -/(length _). by lia.
     + move=> _ /=. rewrite -(ζ_SnP (A := A ++ [a])).
@@ -324,8 +323,7 @@ Lemma descendP {s t: term} {B: list symbol} : descend s B = Some t -> length B <
 Proof.
   elim: B s t.
     move=> /= *. by lia.
-  move=> b B IH. case=> /=. 
-    done.
+  move=> b B IH. case=> /=; first done.
   move=> > /IH. case: b; by lia.
 Qed.
 
@@ -338,14 +336,14 @@ Proof.
   pose f x := embed (([], x, []) : config).
   apply: (bounded_actual_bounded detM (n := depth_bound φ (map f (enum_states M)))).
   move=> /= Z x y A B Hx Hy.
-  have: @equiv M ([], y, B) (A, x, []).
-    eexists. constructor; by eassumption.
-  move /enum_states_equiv. case.
-    case=> *. subst=> /=. by lia.
-  move=> /= /(in_map f) /depth_boundP => /(_ φ) Hfy. 
-  move: Hx => /interpretP. move /(_ _ _ _ Hφ)=> Hx.
-  move: Hy => /interpretP. move /(_ _ _ _ Hφ). rewrite -Hx /interpret.
-  move=> /=. move /descendP.
-  move: Hfy. rewrite /f. move: (length B) => ?.
-  clear. by lia.
+  case: (In_dec _ y (enum_states M)); first by decide equality.
+    move=> /(in_map f) /depth_boundP => /(_ φ) Hfy.
+    move: Hy => /(interpretP Hφ). move: Hx => /(interpretP Hφ) <-.
+    move=> /= /descendP. rewrite -/(f y).
+    move: (length B) => ?. by lia.
+  move: (Hy) Hx => /enum_states_reachable. case.
+    move=> <- /enum_states_reachable. case.
+      case=> *. subst=> /=. by lia.
+    by move=> [+].
+  by move=> [+].
 Qed.
