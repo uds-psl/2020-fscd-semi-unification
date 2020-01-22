@@ -377,6 +377,7 @@ Qed.
 (* bound on size of the right stack for narrow configurations *)
 Definition bound (n: nat) := forall (x: state) (A B: stack), narrow (A, x, B) -> length B <= n.
 
+
 Lemma step_rendundant_prefix {x y: state} {A B C D: stack} {a: symbol}: 
   step M (A++[a], x, B) (C++[a], y, D) -> step M (A, x, B) (C, y, D).
 Proof.
@@ -486,15 +487,6 @@ Proof.
   - move=> > ?. case=> ? ? ?. case=> ? ? ?. subst. move: HBB' HB'B => /=. by lia.
 Qed.
 
-
-(* if M is bounded by n, then the size of right stacks of narrow configurations is at most n+n*)
-Lemma actual_bounded_narrow (n: nat) : bounded M n -> bound (n+n).
-Proof.
-  move=> Hn x A B [x' [A']] [[[A''] z B'']].
-  move=> [/(actual_bounded_length Hn) + /(actual_bounded_length Hn)] /=.
-  by lia.
-Qed.
-
 (* bound on size of the right stack for narrow configurations with empty left stack *)
 Definition bounded' (n: nat) : Prop := forall (c: config) (x y: state) (A B: stack), 
   reachable M (A, x, []) c -> reachable M ([], y, B) c -> length B <= n.
@@ -594,7 +586,7 @@ Qed.
 
 (* if sizes of right stacks of narrow configurations with empty left stack are bounded by m,
   then M is bounded *)
-Lemma bounded_actual_bounded {n: nat}: bounded' n -> exists (m: nat), bounded M m.
+Lemma bounded_of_bounded' {n: nat}: bounded' n -> exists (m: nat), bounded M m.
 Proof.
   move=> Hn.
   pose W := (repeat false (n+n), 0, repeat false (n+n)) : config.
@@ -630,20 +622,59 @@ Proof.
   move=> D' [-> /HL1 ?]. apply /in_map_iff. by exists (C, y, D').
 Qed.
 
-Lemma narrow_bounded' {n: nat} : bound n -> bounded' n.
+Lemma bounded_to_bounded' {n: nat}: bounded M n -> exists (m: nat), bounded' m.
 Proof.
-  move=> Hn. rewrite /bounded'.
-  move=> Z x y A B ? ?. apply: Hn.
-  exists x, A, Z. constructor; by eassumption.
+  move=> Hn. exists (n+n). rewrite /bounded'.
+  move=> [[A' z] B'] x y A B /(actual_bounded_length Hn) + /(actual_bounded_length Hn) => /=.
+  by lia.
+Qed.
+
+(* if M is bounded by n, then the size of right stacks of narrow configurations is at most n+n*)
+Lemma actual_bounded_narrow (n: nat) : bounded M n -> bound (n+n).
+Proof.
+  move=> Hn x A B [x' [A']] [[[A''] z B'']].
+  move=> [/(actual_bounded_length Hn) + /(actual_bounded_length Hn)] /=.
+  by lia.
+Qed.
+
+(* it suffices to consider narrow configurations with empty left stack *)
+Lemma bound_of_bounded' {n: nat} : bounded' n -> bound n.
+Proof.
+  move=> Hn x A B. elim /(measure_ind (@length bool)) : A => A IH.
+  have: ({A = []} + {A <> []}).
+    by do 2 (decide equality).
+  case.
+    move=> -> [y [A']] [Z [+ ?]]. move /Hn. apply. by eassumption.
+  move /exists_last => [A' [a HA]]. subst A. rename A' into A.
+  move=> [y [A']] [Z [Hx]]. have: ({A' = []} + {A' <> []}).
+    by do 2 (decide equality).
+  case.
+    move=> ->. move: Hx => /reachable_width + /reachable_width => <- /=. by lia.
+  move /exists_last => [A'' [a' HA']]. subst A'. rename A'' into A'.
+  move: Z Hx => [[A'' z] B''] /copy [/remove_rendundant_suffix0]. case.
+    move=> [x' [B']] /copy [/reachable_width] /= HB Hx1 Hx2 Hy.
+    have [Y [HY1 HY2]] := (reachable_confluent Hx1 Hx2).
+    move: Hy HY2 HY1 => /(@rt_trans config). move=> H /H{H}.
+    move /Hn => H /H{H}. by lia.
+  move=> [A''' [? Hx]]. subst A''. rename A''' into A''.
+  move=> _ /copy [/remove_rendundant_suffix0]. case.
+    move=> [x' [B']]. move=> /copy [/reachable_width] /=. 
+    rewrite app_length => /= ?. move /Hn. 
+    move /(_ _ _ ltac:(apply: rt_refl)) => ?.
+    move: Hx => /reachable_width + /reachable_width => /=.
+    rewrite ?app_length => /=. by lia.
+  move=> [A''']. move=> [/(@app_inj_tail bool) [? ?]]. subst.
+  move=> ? _. apply: (IH A).
+    rewrite app_length /length. by lia.
+  do 3 eexists. constructor; by eassumption.
 Qed.
 
 (* equivalent characterizations of boundedness *)
 Theorem boundedP : (exists n, bounded M n) <-> (exists m, bounded' m).
 Proof.
   constructor.
-    move=> [?]. move /actual_bounded_narrow /narrow_bounded' => ?.
-    eexists. by eassumption.
-  move=> [? ?]. apply: bounded_actual_bounded. by eassumption.
+    move=> [?]. by apply /bounded_to_bounded'.
+  move=> [?]. by apply /bounded_of_bounded'.
 Qed.
 
 Lemma narrow_equiv {X Y: config} : equiv X Y -> narrow X -> narrow Y.

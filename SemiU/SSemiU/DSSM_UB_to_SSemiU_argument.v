@@ -334,7 +334,7 @@ Proof.
   case: M=> M detM /=. rewrite /SSemiU /DSSM_UB.
   move=> [φ [ψ0 [ψ1]]]. rewrite -Forall_forall => Hφ.
   pose f x := embed (([], x, []) : config).
-  apply: (bounded_actual_bounded detM (n := depth_bound φ (map f (enum_states M)))).
+  apply: (bounded_of_bounded' detM (n := depth_bound φ (map f (enum_states M)))).
   move=> /= Z x y A B Hx Hy.
   case: (In_dec _ y (enum_states M)); first by decide equality.
     move=> /(in_map f) /depth_boundP => /(_ φ) Hfy.
