@@ -51,7 +51,7 @@ Variable detM : deterministic M.
 Notation equiv := (@equiv M).
 Notation equiv_dec := (equiv_dec detM).
 Notation narrow_dec := (narrow_dec detM).
-Notation bound := (@bound M).
+Notation bounded' := (@bounded' M).
 
 (* bounded (by i) search for normal form of X *)
 Fixpoint nf_aux (i: nat) (X: config) : config :=
@@ -154,10 +154,10 @@ Proof.
 Qed.
 
 
-Lemma ζ_equivP {n: nat} {x x': state} {A B A' B': stack} : bound n -> equiv (A, x, B) (A', x', B') -> 
+Lemma ζ_equivP {n: nat} {x x': state} {A B A' B': stack} : bounded' n -> equiv (A, x, B) (A', x', B') -> 
   ζ (S n - length B) (A, x, B) = ζ (S n - length B') (A', x', B').
 Proof.
-  move=> Hn. move Hm: (S n - length B)=> m.
+  move /(extend_bounded' detM) => Hn. move Hm: (S n - length B)=> m.
   elim: m A B A' B' Hm.
   - move=> A B A' B' HnB Hxx'.
     have: (S n - length B' = 0 \/ S n - length B' = (S (n - length B'))) by lia. case.
@@ -166,13 +166,13 @@ Proof.
     case: (narrow_dec (A', x', B')) => /=; first last.
       move=> _. f_equal. f_equal. by apply: nf_equiv_eq.
     move /equiv_sym in Hxx'.
-    move /(narrow_equiv detM Hxx') /Hn. by lia.
+    move /(narrow_equiv detM Hxx') /Hn => /=. by lia.
   - move=> m IH A B A' B' Hm Hxx'.
     have: (S n - length B' = 0 \/ S n - length B' = S (n - length B')) by lia. case.
       move=> HnB'. rewrite HnB' ζ_0P ζ_SnP.
       case: (narrow_dec (A, x, B)) => /=; first last.
         move=> _. f_equal. f_equal. by apply: nf_equiv_eq.
-      move /(narrow_equiv detM Hxx') /Hn. by lia.
+      move /(narrow_equiv detM Hxx') /Hn => /=. by lia.
     move=> ->. rewrite ? ζ_SnP.
     case: (narrow_dec (A, x, B)); case: (narrow_dec (A', x', B'))=> /=.
     + move=> _ _. apply: (arr_eqI (s := fun=> ζ _ _) (t := fun=> ζ _ _)).
@@ -192,10 +192,10 @@ Lemma ψP {a: bool} {n: nat} {X: config} : ψ a n (embed X) =
   end.
 Proof. by rewrite /ψ embedP. Qed.
 
-Lemma ψζP {n: nat} {x: state} {A B: stack} {a: bool} : bound n -> 
+Lemma ψζP {n: nat} {x: state} {A B: stack} {a: bool} : bounded' n -> 
   ζ (S n - length B) (A ++ [a], x, B) = substitute (ψ a (S n)) (ζ (S n - length B) (A, x, B)).
 Proof.
-  rewrite /bound => Hn. move Hm: (S n - length B)=> m.
+  move=> Hn. move Hm: (S n - length B)=> m.
   elim: m x A B Hm.
   - move=> x A B Hm.
     rewrite ? ζ_0P => /=. rewrite ψP.
@@ -230,8 +230,7 @@ End SM.
 Lemma soundness {M: dssm} : DSSM_UB M -> SSemiU (SM_to_SUcs (proj1_sig M)).
 Proof.
   Opaque ζ ψ.
-  case: M=> M detM. rewrite /DSSM_UB /SSemiU. move=> /= [n /(actual_bounded_narrow detM)].
-  move: (n+n) => {}n HnM.
+  case: M=> M detM. rewrite /DSSM_UB /SSemiU. move /(boundedP detM) => /= [n HnM].
   exists (fun i => ζ detM (S n) (unembed i)), (ψ detM false (S n)), (ψ detM true (S n)).
   case=> [[a x]] => [[y b]] /=. move /SM_to_SUcsP => [x' [y' [? [?]]]]. 
   subst x y. move: x' y' => x y.

@@ -374,9 +374,6 @@ Proof.
   do 2 eexists. by eassumption.
 Qed.
 
-(* bound on size of the right stack for narrow configurations *)
-Definition bound (n: nat) := forall (x: state) (A B: stack), narrow (A, x, B) -> length B <= n.
-
 
 Lemma step_rendundant_prefix {x y: state} {A B C D: stack} {a: symbol}: 
   step M (A++[a], x, B) (C++[a], y, D) -> step M (A, x, B) (C, y, D).
@@ -629,18 +626,11 @@ Proof.
   by lia.
 Qed.
 
-(* if M is bounded by n, then the size of right stacks of narrow configurations is at most n+n*)
-Lemma actual_bounded_narrow (n: nat) : bounded M n -> bound (n+n).
-Proof.
-  move=> Hn x A B [x' [A']] [[[A''] z B'']].
-  move=> [/(actual_bounded_length Hn) + /(actual_bounded_length Hn)] /=.
-  by lia.
-Qed.
 
-(* it suffices to consider narrow configurations with empty left stack *)
-Lemma bound_of_bounded' {n: nat} : bounded' n -> bound n.
+(* right stack size bound translates to all narrow configurations *)
+Lemma extend_bounded' {n: nat} {X: config} : bounded' n -> narrow X -> length (get_right X) <= n.
 Proof.
-  move=> Hn x A B. elim /(measure_ind (@length bool)) : A => A IH.
+  move: X => [[A x] B] Hn. elim /(measure_ind (@length bool)) : A => A IH.
   have: ({A = []} + {A <> []}).
     by do 2 (decide equality).
   case.
