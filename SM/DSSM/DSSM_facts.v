@@ -25,6 +25,9 @@ From Undecidability.SM.DSSM Require Import Utils.
 (* width of a configuration *)
 Definition width : config -> nat := fun '(A, _, B) => length A + length B.
 
+Lemma stack_eq_dec (A B: stack) : {A = B} + {A <> B}.
+Proof. by do 2 (decide equality). Qed.
+
 Section DSSM.
 
 Context {M : ssm}.
@@ -484,11 +487,8 @@ Qed.
 Lemma space_length {X Y: config} : 
   width X <= width Y -> length (space X) <= length (space Y).
 Proof.
-  rewrite /space => /=. 
-  move: (width X) => l1.
-  move: (width Y) => l2. clear.
-  move=> H.
-  have: (forall x y, x <= y -> S x <= S y) by (move=> *; lia). apply.
+  rewrite /space => /=. move: (width X) => l1. move: (width Y) => l2. clear.
+  move=> H. apply: le_n_S.
   apply: length_flat_map_le; first by lia.
   move=> i. rewrite ? length_enum_configs ? length_enum_stacks.
   have: 2 ^ (l1 - i) <= 2 ^ (l2 - i).
@@ -519,8 +519,7 @@ Proof.
   all: rewrite ?Exists_exists.
   - move=> [[[A1 x1] B1]] + [[[A2 x2] B2]] => /= [[_ [? ?]]] [_ [? ?]]. subst.
     left. do 4 eexists. constructor; by eassumption.
-  - move=> HX _. right. left. have : ({get_left X = []} + {get_left X <> []}) by do 2 (decide equality).
-    case.
+  - move=> HX _. right. left. case: (stack_eq_dec (get_left X) []).
       move=> ?. exfalso. apply: HX. exists X. constructor; first by left.
       constructor; first done. apply: rt_refl.
     move /exists_last => [A [a HAa]]. exists A, a. constructor; first done.
@@ -529,8 +528,7 @@ Proof.
     move=> [x' [B' ?]]. exfalso. apply: HX. exists ([], x', B').
     constructor; first by apply: spaceP0.
     by constructor.
-  - move=> HX. right. right. have : ({get_right X = []} + {get_right X <> []}) by do 2 (decide equality).
-    case.
+  - move=> HX. right. right. case: (stack_eq_dec (get_right X) []).
       move=> ?. exfalso. apply: HX. exists X. constructor; first by left.
       constructor; first done. apply: rt_refl.
     move /exists_last => [B [b HBb]]. exists B, b. constructor; first done.
@@ -546,7 +544,7 @@ Qed.
 Lemma bounded_of_bounded' {n: nat}: bounded' n -> exists (m: nat), bounded M m.
 Proof.
   move=> Hn.
-  pose W := (repeat false (n+n), 0, repeat false (n+n)) : config.
+  pose W := (repeat false n, 0, repeat false n) : config.
   exists (length (space W)). elim /(measure_ind width).
   move=> X IH. case: (reachable_suffixes X); last case.
   - move=> [?] [?] [?] [?] [+ /copy] => /reachable_confluent H [/H{H}] [Y]. 
@@ -581,15 +579,11 @@ Qed.
 (* right stack size bound translates to all narrow configurations *)
 Lemma extend_bounded' {n: nat} {X: config} : bounded' n -> narrow X -> length (get_right X) <= n.
 Proof.
-  move: X => [[A x] B] Hn. elim /(measure_ind (@length bool)) : A => A IH.
-  have: ({A = []} + {A <> []}).
-    by do 2 (decide equality).
-  case.
+  move: X => [[A x] B] Hn. elim /(measure_ind (@length symbol)) : A => A IH.
+  case: (stack_eq_dec A []).
     move=> -> [y [A']] [Z [+ ?]]. move /Hn. apply. by eassumption.
   move /exists_last => [A' [a HA]]. subst A. rename A' into A.
-  move=> [y [A']] [Z [Hx]]. have: ({A' = []} + {A' <> []}).
-    by do 2 (decide equality).
-  case.
+  move=> [y [A']] [Z [Hx]]. case: (stack_eq_dec A' []).
     move=> ->. move: Hx => /reachable_width + /reachable_width => <- /=. by lia.
   move /exists_last => [A'' [a' HA']]. subst A'. rename A'' into A'.
   move: Z Hx => [[A'' z] B''] /copy [/remove_rendundant_suffixL]. case.
@@ -604,7 +598,7 @@ Proof.
     move /(_ _ _ ltac:(apply: rt_refl)) => ?.
     move: Hx => /reachable_width + /reachable_width => /=.
     rewrite ?app_length => /=. by lia.
-  move=> [A''']. move=> [/(@app_inj_tail bool) [? ?]]. subst.
+  move=> [A''']. move=> [/(@app_inj_tail symbol) [? ?]]. subst.
   move=> ? _. apply: (IH A).
     rewrite app_length /length. by lia.
   do 3 eexists. constructor; by eassumption.
