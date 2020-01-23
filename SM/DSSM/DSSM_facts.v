@@ -43,7 +43,7 @@ Proof.
       apply: rt_step. by apply: step_r.
   - move=> > <-. case=> -> -> ->.
     by apply: rt_refl.
-  - move=> X [[A' x'] B'] Z HXY IHXY HYZ IHYZ *.
+  - move=> X [[A' x'] B'] Z ? IHXY ? IHYZ *.
     apply: rt_trans; [by apply: IHXY | by apply: IHYZ].
 Qed.
 
@@ -142,12 +142,8 @@ Proof.
   - move=> ? ? /enum_states_step ?. by right.
   - move=> ?. by left.
   - move=> > _ + _. case.
-      move=> ->. case.
-        move=> ->. by left.
-      move=> ?. by right.
-    move=> [? ?]. case.
-      move=> <-. by right.
-    move=> [? ?]. by right.
+      move=> ->. case; [move=> ->; by left | move=> ?; by right].
+    move=> [? ?]. case; [move=> <- | move=> [? ?]]; by right.
 Qed.  
 
 (* list all configurations with stack lengths lA and lB *)
@@ -159,7 +155,7 @@ Lemma enum_configsP (x: state) (A B: stack) : In x (enum_states M) ->
   In (A, x, B) (enum_configs (length A) (length B)).
 Proof.
   move=> Hx. rewrite /enum_configs ? in_prod_iff.
-  have ? := enum_stacksP. by constructor; first constructor.
+  have ? := enum_stacksP. by (constructor; first by constructor).
 Qed.
 
 (* space X is an overapproximation of reachable states from X *)
@@ -189,13 +185,6 @@ Proof.
   move=> /copy [/enum_states_reachable + /reachable_width]. case.
     move=> <- _. by left.
   move=> [_ /spaceP] + ?. by apply.
-Qed.
-
-Lemma spaceP1 {X Y: config} : reachable M X Y -> In X (space Y).
-Proof.
-  move=> /copy [/enum_states_reachable + /reachable_width]. case.
-  move=> <- _. by left.
-  move=> [/spaceP + _] ?. by apply.
 Qed.
 
 Lemma space_equivP {X Y: config} : equiv X Y -> In Y (space X).
@@ -375,93 +364,73 @@ Proof.
 Qed.
 
 
-Lemma step_rendundant_prefix {x y: state} {A B C D: stack} {a: symbol}: 
-  step M (A++[a], x, B) (C++[a], y, D) -> step M (A, x, B) (C, y, D).
-Proof.
-  move HX: (A ++ [a], x, B) => X. move HY: (C ++ [a], y, D) => Y.
-  move=> H. case: H HX HY.
-  - move=> > ?. move=> H1 H2. case: H2 H1.
-    move=> <- ? ->. case. rewrite app_comm_cons. move /app_inv_tail => -> *.
-    subst. by apply: step_l.
-  - move=> > ?. case=> <- ? ->. case. rewrite app_comm_cons. move /app_inv_tail => -> *.
-    subst. by apply: step_r.
-Qed.
-  
-
-Lemma remove_rendundant_suffix0 {x y: state} {A B C D: stack} {a: symbol}: reachable M (A++[a], x, B) (C, y, D) -> 
+Lemma remove_rendundant_suffixL {x: state} {A B: stack} {a: symbol} {Y: config}: reachable M (A++[a], x, B) Y -> 
   (exists (x': state) (B': stack), reachable M (A++[a], x, B) ([], x', B')) \/
-  (exists (C': stack), C = C' ++ [a] /\ reachable M (A, x, B) (C', y, D)).
+  (exists (C: stack), get_left Y = C ++ [a] /\ reachable M (A, x, B) (C, get_state Y, get_right Y)).
 Proof.
-  move HX: (A ++ [a], x, B) => X. move HY: (C, y, D) => Y.
-  move=> H. elim: H x y A B C D a HX HY.
+  move HX: (A ++ [a], x, B) => X H. elim: H x A B a HX.
   - move=> ? ?. case.
     + move=> x y a b. case.
-      * move=> B ? > _ _. left. exists y, (b::B). apply: rt_step. by apply: step_l.
+      * move=> B ? > _. left. exists y, (b::B). apply: rt_step. by apply: step_l.
       * move=> a' A B ? >.
-        have [A'' [a'' HA]] := (@exists_last _ (a' :: A) ltac:(done)).
-        rewrite HA.
-        case. rewrite app_comm_cons. move /(@app_inj_tail symbol). case=> ? ? ? ?. case=> ? ? ?. subst.
+        have [A'' [a'' ->]] := (@exists_last _ (a' :: A) ltac:(done)).
+        case. rewrite app_comm_cons. move /(@app_inj_tail symbol). case=> ? ? ? ?. subst.
         right. exists A''. constructor; first done.
         apply: rt_step. by apply: step_l. 
-    + move=> > ? >. case=> <- -> ->. case=> -> -> ->. right. eexists. constructor.
+    + move=> > ? >. case=> <- -> ->. right. eexists. constructor.
         rewrite app_comm_cons. by reflexivity.
       apply: rt_step. by apply: step_r.  
-  - move=> > <-. case=> -> -> ->. right. eexists. constructor.
-      by reflexivity.
+  - move=> > <-. right. eexists. constructor; first by reflexivity.
     by apply: rt_refl.
-  - move=> {}X {}[[A' x'] B'] Z. move=> _ IH1 _ IH2 x y A B C D a ? ?. subst.
-    have := (IH1 x x' A B A'  B' a ltac:(done) ltac:(done)). case.
+  - move=> {}X {}[[A' x'] B'] Z. move=> _ IH1 _ IH2 x A B a ?. subst.
+    case: (IH1 x A B a ltac:(done)).
       move=> ?. by left.
-    move=> [C' [? Hxx']]. subst.
-    have := (IH2 x' y C' B' C D a ltac:(done) ltac:(done)). case.
+    move=> /= [C' [? Hxx']]. subst.
+    case: (IH2 x' C' B' a ltac:(done)).
       move=> [x'' [B'' ?]]. left.
       exists x'', B''. apply: rt_trans; last by eassumption.
       have -> : (B = B ++ []) by rewrite app_nil_r.
       have -> : (B' = B' ++ []) by rewrite app_nil_r.
       by apply: reachable_app.
-    move=> [C'' [? ?]]. subst. right.
-    exists C''. constructor; first done.
+    move=> [C'' [? ?]]. right. exists C''. constructor; first done.
     apply: rt_trans; by eassumption.
 Qed.
 
-Lemma remove_rendundant_suffix1 {x y: state} {A B C D: stack} {b: symbol}: reachable M (A, x, B++[b]) (C, y, D) -> 
+
+Lemma remove_rendundant_suffixR {x: state} {A B: stack} {b: symbol} {Y: config} : reachable M (A, x, B++[b]) Y -> 
   (exists (x': state) (A': stack), reachable M (A, x, B++[b]) (A', x', [])) \/
-  (exists (D': stack), D = D' ++ [b] /\ reachable M (A, x, B) (C, y, D')).
+  (exists (D: stack), get_right Y = D ++ [b] /\ reachable M (A, x, B) (get_left Y, get_state Y, D)).
 Proof.
-  move HX: (A, x, B ++ [b]) => X. move HY: (C, y, D) => Y.
-  move=> H. elim: H x y A B C D b HX HY.
+  move HX: (A, x, B ++ [b]) => X H. elim: H x A B b HX.
   - move=> ? ?. case.
-    + move=> > ? >. case=> -> -> <-. case=> -> -> ->. right. eexists. constructor.
+    + move=> > ? >. case=> -> -> <-. right. eexists. constructor.
         rewrite app_comm_cons. by reflexivity.
       apply: rt_step. by apply: step_l.    
     + move=> x y a b A. case.
-      * move=> ? > _ _. left. exists y, (a::A). apply: rt_step. by apply: step_r.
+      * move=> ? > _. left. exists y, (a::A). apply: rt_step. by apply: step_r.
       * move=> b' B ? >.
-        have [B'' [b'' HB]] := (@exists_last _ (b' :: B) ltac:(done)).
-        rewrite HB.
-        case=> ? ?. rewrite app_comm_cons. move /(@app_inj_tail symbol). case=> ? ?. case=> ? ? ?. subst.
+        have [B'' [b'' ->]] := (@exists_last _ (b' :: B) ltac:(done)).
+        case=> ? ?. rewrite app_comm_cons. move /(@app_inj_tail symbol). case=> ? ?. subst.
         right. exists B''. constructor; first done.
         apply: rt_step. by apply: step_r. 
-  - move=> > <-. case=> -> -> ->. right. eexists. constructor.
-      by reflexivity.
+  - move=> > <-. right. eexists. constructor; first by reflexivity.
     by apply: rt_refl.
-  - move=> {}X {}[[A' x'] B'] Z. move=> _ IH1 _ IH2 x y A B C D b ? ?. subst.
-    have := (IH1 x x' A B A'  B' b ltac:(done) ltac:(done)). case.
+  - move=> {}X {}[[A' x'] B'] Z. move=> _ IH1 _ IH2 x A B b ?. subst.
+    case: (IH1 x A B b ltac:(done)).
       move=> ?. by left.
-    move=> [D' [? Hxx']]. subst.
-    have := (IH2 x' y A' D' C D b ltac:(done) ltac:(done)). case.
+    move=> /= [D' [? Hxx']]. subst.
+    case: (IH2 x' A' D' b ltac:(done)).
       move=> [x'' [A'' ?]]. left.
       exists x'', A''. apply: rt_trans; last by eassumption.
       have -> : (A = A ++ []) by rewrite app_nil_r.
       have -> : (A' = A' ++ []) by rewrite app_nil_r.
       by apply: reachable_app.
-    move=> [D'' [? ?]]. subst. right.
-    exists D''. constructor; first done.
+    move=> [D'' [? ?]]. right. exists D''. constructor; first done.
     apply: rt_trans; by eassumption.
 Qed.
 
 (* if M is bounded, then the sizes of right stacks of reachable configurations differ at most by n *)
-Lemma actual_bounded_length {n: nat} {x y: state} {A B C D: stack} : bounded M n -> reachable M (A, x, B) (C, y, D) -> 
+Lemma bounded_stack_difference {n: nat} {x y: state} {A B C D: stack} : bounded M n -> reachable M (A, x, B) (C, y, D) -> 
   length B <= length D + n /\ length D <= length B + n.
 Proof.
   move /(_ (A, x, B)) => [L [HL1 HL2]].
@@ -488,69 +457,16 @@ Qed.
 Definition bounded' (n: nat) : Prop := forall (c: config) (x y: state) (A B: stack), 
   reachable M (A, x, []) c -> reachable M ([], y, B) c -> length B <= n.
 
-Lemma bounded_reachable_length0 {n: nat} {x y: state} {A B D: stack} : 
-  bounded' n -> reachable M (A, x, B) ([], y, D) -> length A <= n.
-Proof.
-  move=> Hn. elim /(measure_ind (@length symbol)) : B D. case.
-    move=> ? D. move /copy => [/reachable_width] /=.
-    rewrite Nat.add_0_r => ->. move /Hn. apply. by apply: rt_refl.
-  move=> b B. have [B' [b' ->]] := (@exists_last _ (b :: B) ltac:(done)).
-  move=> IH D. move /copy => [Hx].
-  move /remove_rendundant_suffix1. case.
-    move=> [x' [A']]. move /reachable_confluent. move /(_ _ ltac:(eassumption)).
-    move=> [Y [HY1]]. move /copy => [HY2]. move /Hn. move /(_ _ _ ltac:(eassumption)).
-    move: Hx => /reachable_width /=. by lia.
-  move=> [D' [?]]. subst. move /IH => /=. apply. rewrite app_length /length. by lia.
-Qed.
-
-Lemma bounded_reachable_length1 {n: nat} {x y: state} {A B C: stack} : 
-  bounded' n -> reachable M (A, x, B) (C, y, []) -> length B <= n.
-Proof.
-  move=> Hn. elim /(measure_ind (@length symbol)) : A C. case.
-    move=> ? C /Hn. apply. by apply: rt_refl.
-  move=> a A. have [A' [a' ->]] := (@exists_last _ (a :: A) ltac:(done)).
-  move=> IH C. move /copy => [Hx].
-  move /remove_rendundant_suffix0. case.
-    move=> [x' [B']]. move /reachable_confluent. move /(_ _ ltac:(eassumption)).
-    move=> [Y [HY1]]. move /copy => [HY2]. move /Hn. move /(_ _ _ ltac:(eassumption)).
-    move: HY2 => /reachable_width. move: HY1 => /reachable_width <-.
-    move: Hx => /reachable_width /=. by lia.
-  move=> [C' [?]]. subst. move /IH => /=. apply. rewrite app_length /length. by lia.
-Qed.
-  
-Lemma bounded_removelast0 {n: nat} {x y: state} {A B C D: stack} {a: symbol}: 
-  bounded' n -> reachable M (A++[a], x, B) (C, y, D) -> length A >= n ->
-  exists (C': stack), C = C' ++ [a] /\ reachable M (A, x, B) (C', y, D).
-Proof.
-  move=> Hn /remove_rendundant_suffix0. case.
-  - move=> [x' [B']]. move /(bounded_reachable_length0 Hn).
-    rewrite app_length /length. by lia.
-  - move=> [?] ? _. eexists. by eassumption.
-Qed.
-
-Lemma bounded_removelast1 {n: nat} {x y: state} {A B C D: stack} {b: symbol}: 
-  bounded' n -> reachable M (A, x, B++[b]) (C, y, D) -> length B >= n ->
-  exists D', D = D' ++ [b] /\ reachable M (A, x, B) (C, y, D').
-Proof.
-  move=> Hn /remove_rendundant_suffix1. case.
-  - move=> [x' [A']]. move /(bounded_reachable_length1 Hn).
-    rewrite app_length /length. by lia.
-  - move=> [?] ? _. eexists. by eassumption.
-Qed.
-
 Lemma length_flat_map_le {X: Type} {f g: nat -> list X} {l1 l2: nat} : l1 <= l2 -> 
   (forall i, length (f i) <= length (g i)) ->
   length (flat_map f (seq 0 l1)) <= length (flat_map g (seq 0 l2)).
 Proof.
-  move: (X in (seq X)) => i.
-  move=> + Hfg.
-  elim: l1 l2 i.
+  move: (X in (seq X)) => i. move=> + Hfg. elim: l1 l2 i.
     move=> /= *. by lia.
   move=> l1 IH l2 i ?. have -> : (l2 = S (l2 - 1)) by lia.
   move=> /=. rewrite ? app_length.
   have := (IH (l2 - 1) (S i) ltac:(lia)).
-  have := (Hfg i).
-  by lia.
+  have := (Hfg i). by lia.
 Qed.
 
 Lemma length_enum_stacks {l: nat} : length (enum_stacks l) = Nat.pow 2 l.
@@ -573,12 +489,56 @@ Proof.
   move: (width Y) => l2. clear.
   move=> H.
   have: (forall x y, x <= y -> S x <= S y) by (move=> *; lia). apply.
-  apply: length_flat_map_le.
-    by lia.
+  apply: length_flat_map_le; first by lia.
   move=> i. rewrite ? length_enum_configs ? length_enum_stacks.
   have: 2 ^ (l1 - i) <= 2 ^ (l2 - i).
     apply: Nat.pow_le_mono_r; by lia.
   by nia.
+Qed.
+
+(* a configuration X either explores its full space or has a redundint suffix on one of the stacks *)
+Theorem reachable_suffixes (X: config) : 
+  (exists A x y B, reachable M X (A, x, []) /\ reachable M X ([], y, B)) \/
+  (exists AX a, get_left X = AX ++ [a] /\ forall Y, reachable M X Y -> exists AY, get_left Y = AY ++ [a] /\
+    reachable M (AX, get_state X, get_right X) (AY, get_state Y, get_right Y)) \/
+  (exists BX b, get_right X = BX ++ [b] /\ forall Y, reachable M X Y -> exists BY, get_right Y = BY ++ [b] /\
+    reachable M (get_left X, get_state X, BX) (get_left Y, get_state Y, BY)).
+Proof.
+  case: (Exists_dec (fun Y => get_right Y = [] /\ reachable M X Y) (space X)).
+    move=> [[A x]]. case; first last.
+      move=> >. right. by move => [? ?].
+    case: (reachable_dec X (A, x, [])); first last.
+      move=> >. right. by move => [? ?].
+    move=> ?. by left.
+  case: (Exists_dec (fun Y => get_left Y = [] /\ reachable M X Y) (space X)).
+    move=> [[+ x] B]. case; first last.
+      move=> >. right. by move => [? ?].
+    case: (reachable_dec X ([], x, B)); first last.
+      move=> >. right. by move => [? ?].
+    move=> ?. by left.
+  all: rewrite ?Exists_exists.
+  - move=> [[[A1 x1] B1]] + [[[A2 x2] B2]] => /= [[_ [? ?]]] [_ [? ?]]. subst.
+    left. do 4 eexists. constructor; by eassumption.
+  - move=> HX _. right. left. have : ({get_left X = []} + {get_left X <> []}) by do 2 (decide equality).
+    case.
+      move=> ?. exfalso. apply: HX. exists X. constructor; first by left.
+      constructor; first done. apply: rt_refl.
+    move /exists_last => [A [a HAa]]. exists A, a. constructor; first done.
+    move=> Y. move: X HX HAa => [[AX xX] BX] HX /= HAa. subst.
+    case /remove_rendundant_suffixL; last done.
+    move=> [x' [B' ?]]. exfalso. apply: HX. exists ([], x', B').
+    constructor; first by apply: spaceP0.
+    by constructor.
+  - move=> HX. right. right. have : ({get_right X = []} + {get_right X <> []}) by do 2 (decide equality).
+    case.
+      move=> ?. exfalso. apply: HX. exists X. constructor; first by left.
+      constructor; first done. apply: rt_refl.
+    move /exists_last => [B [b HBb]]. exists B, b. constructor; first done.
+    move=> Y. move: X HX HBb => [[AX xX] BX] HX /= HBb. subst.
+    case /remove_rendundant_suffixR; last done.
+    move=> [x' [A' ?]]. exfalso. apply: HX. exists (A', x', []).
+    constructor; first by apply: spaceP0.
+    by constructor.
 Qed.
 
 (* if sizes of right stacks of narrow configurations with empty left stack are bounded by m,
@@ -588,41 +548,32 @@ Proof.
   move=> Hn.
   pose W := (repeat false (n+n), 0, repeat false (n+n)) : config.
   exists (length (space W)). elim /(measure_ind width).
-  move=> [[A x] B] IH.
-  have : (length A + length B <= n+n \/ length A > n \/ length B > n) by lia.
-  case.
-    move=> ?. exists (space (A, x, B)). constructor.
+  move=> X IH. case: (reachable_suffixes X); last case.
+  - move=> [?] [?] [?] [?] [+ /copy] => /reachable_confluent H [/H{H}] [Y]. 
+    move=> [/Hn] H /H{H} ? /reachable_width HwX. move=> /= in HwX.
+    exists (space X). constructor.
       by move=> ? /spaceP0.
-    subst W. apply: space_length => /=. rewrite repeat_length. by lia.
-  case.
-    move=> HAn. have : (A <> []).
-      move: HAn. clear. case: A; last done.
-      move=> /=. by lia.
-    move /exists_last => [A' [a ?]]. subst A. rename A' into A.
-    case: (IH (A, x, B)).
-      rewrite /width app_length /length. by lia.
+    apply: space_length => /=. rewrite repeat_length. by lia.
+  - move: X IH => [[A x] B] IH. move=> [AX] [a] [HA HX]. move=> /= in HA. subst.
+    case: (IH (AX, x, B)). 
+      move=> /=. rewrite app_length /length. by lia.
     move=> L [HL1 HL2]. exists (map (fun '(A, x, B) => (A ++ [a], x, B)) L). 
     constructor; last by rewrite map_length.
-    rewrite app_length /length -/(length _) in HAn.
-    move=> [[C y] D] /(bounded_removelast0 Hn). case; first by lia.
-    move=> C' [-> /HL1 ?]. apply /in_map_iff. by exists (C', y, D).
-  move=> HBn. have : (B <> []).
-    move: HBn. clear. case: B; last done.
-    move=> /=. by lia.
-  move /exists_last => [B' [b ?]]. subst B. rename B' into B.
-  case: (IH (A, x, B)).
-    rewrite /width app_length /length. by lia.
-  move=> L [HL1 HL2]. exists (map (fun '(A, x, B) => (A, x, B ++ [b])) L). 
-  constructor; last by rewrite map_length.
-  rewrite app_length /length -/(length _) in HBn.
-  move=> [[C y] D] /(bounded_removelast1 Hn). case; first by lia.
-  move=> D' [-> /HL1 ?]. apply /in_map_iff. by exists (C, y, D').
+    move=> [[A' y] B'] /HX [AY] /= [->] /HL1 ?. rewrite in_map_iff.
+    eexists. by constructor; last by eassumption.
+  - move: X IH => [[A x] B] IH. move=> [BX] [b] [HB HX]. move=> /= in HB. subst.
+    case: (IH (A, x, BX)). 
+      move=> /=. rewrite app_length /length. by lia.
+    move=> L [HL1 HL2]. exists (map (fun '(A, x, B) => (A, x, B ++ [b])) L). 
+    constructor; last by rewrite map_length.
+    move=> [[A' y] B'] /HX [BY] /= [->] /HL1 ?. rewrite in_map_iff.
+    eexists. by constructor; last by eassumption.
 Qed.
 
 Lemma bounded_to_bounded' {n: nat}: bounded M n -> exists (m: nat), bounded' m.
 Proof.
   move=> Hn. exists (n+n). rewrite /bounded'.
-  move=> [[A' z] B'] x y A B /(actual_bounded_length Hn) + /(actual_bounded_length Hn) => /=.
+  move=> [[A' z] B'] x y A B /(bounded_stack_difference Hn) + /(bounded_stack_difference Hn) => /=.
   by lia.
 Qed.
 
@@ -641,13 +592,13 @@ Proof.
   case.
     move=> ->. move: Hx => /reachable_width + /reachable_width => <- /=. by lia.
   move /exists_last => [A'' [a' HA']]. subst A'. rename A'' into A'.
-  move: Z Hx => [[A'' z] B''] /copy [/remove_rendundant_suffix0]. case.
+  move: Z Hx => [[A'' z] B''] /copy [/remove_rendundant_suffixL]. case.
     move=> [x' [B']] /copy [/reachable_width] /= HB Hx1 Hx2 Hy.
     have [Y [HY1 HY2]] := (reachable_confluent Hx1 Hx2).
     move: Hy HY2 HY1 => /(@rt_trans config). move=> H /H{H}.
     move /Hn => H /H{H}. by lia.
-  move=> [A''' [? Hx]]. subst A''. rename A''' into A''.
-  move=> _ /copy [/remove_rendundant_suffix0]. case.
+  move=> /= [A''' [? Hx]]. subst A''. rename A''' into A''.
+  move=> _ /copy [/remove_rendundant_suffixL]. case.
     move=> [x' [B']]. move=> /copy [/reachable_width] /=. 
     rewrite app_length => /= ?. move /Hn. 
     move /(_ _ _ ltac:(apply: rt_refl)) => ?.
